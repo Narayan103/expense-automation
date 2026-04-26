@@ -1,0 +1,29 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables (secrets go here later)
+.env
+
+# Data files (don't push real receipts to GitHub)
+data/receipts/*
+data/bank_statements/*
+data/outputs/*
+
+# Keep the folders but not contents
+!data/receipts/.gitkeep
+!data/bank_statements/.gitkeep
+!data/outputs/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
