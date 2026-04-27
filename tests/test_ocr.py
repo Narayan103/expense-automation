@@ -1,32 +1,25 @@
-"""test_ocr.py
+"""
+test_ocr.py
 -----------
-Tests the OCR engine with a generated sample receipt.
-Run this file directly to verify everything works.
+Tests OCR engine + text cleaner together.
+Run: python tests/test_ocr.py
 """
 
 import sys
 import os
-
-# Add parent directory to path so we can import src/
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PIL import Image, ImageDraw, ImageFont
 from src.ocr_engine import extract_text
+from src.text_cleaner import parse_receipt, clean_raw_text
 
 
 def create_sample_receipt(output_path: str):
-    """
-    Creates a fake receipt image for testing.
-    Useful when you don't have a real receipt handy.
-    """
-    # Create white background
+    """Creates a fake receipt image for testing."""
     img = Image.new("RGB", (600, 800), color="white")
     draw = ImageDraw.Draw(img)
-
-    # Use default font (no installation needed)
     font = ImageFont.load_default()
 
-    # Receipt content
     lines = [
         "================================",
         "        QUICK MART STORE        ",
@@ -60,7 +53,6 @@ def create_sample_receipt(output_path: str):
         "================================",
     ]
 
-    # Draw each line
     y = 40
     for line in lines:
         draw.text((30, y), line, fill="black", font=font)
@@ -68,48 +60,50 @@ def create_sample_receipt(output_path: str):
 
     img.save(output_path)
     print(f"✅ Sample receipt created: {output_path}")
-    return output_path
 
 
 def run_test():
     print("\n" + "🧪 " * 20)
-    print("RUNNING OCR ENGINE TEST")
+    print("RUNNING FULL PIPELINE TEST (OCR + CLEANER)")
     print("🧪 " * 20)
 
-    # Create sample receipt
     receipt_path = "data/receipts/test_receipt.jpg"
     create_sample_receipt(receipt_path)
 
-    # Run OCR on it
-    result = extract_text(receipt_path)
+    # Stage 1: OCR
+    print("\n📸 STAGE 1: OCR EXTRACTION")
+    ocr_result = extract_text(receipt_path)
 
-    # Show results
+    # Stage 2: Text Cleaning & Parsing
+    print("\n🧹 STAGE 2: TEXT CLEANING & PARSING")
+    parsed = parse_receipt(ocr_result)
+
+    # Show final structured output
     print("\n" + "=" * 50)
-    print("📋 EXTRACTED TEXT:")
+    print("✅ FINAL STRUCTURED OUTPUT:")
     print("=" * 50)
-    print(result["text"])
-    print("=" * 50)
-    print(f"\n📊 Engine used : {result.get('engine', 'N/A')}")
-    print(f"📊 Confidence  : {result.get('confidence', 0):.1f}%")
-    print(f"📊 Characters  : {len(result.get('text', ''))}")
+    for key, value in parsed.items():
+        if key != "raw_text":  # Skip raw text for cleaner display
+            print(f"  {key:<15}: {value}")
 
-    # Basic validation
+    # Validation checks
     print("\n🔍 Validation Checks:")
     checks = {
-        "Contains store name": "QUICK MART" in result["text"].upper(),
-        "Contains total amount": "1,280" in result["text"] or "1280" in result["text"],
-        "Contains date": "2025" in result["text"],
-        "Text is not empty": len(result["text"]) > 50,
+        "Vendor extracted"      : parsed["vendor_name"] != "Unknown Vendor",
+        "Date extracted"        : parsed["date"] != "Unknown Date",
+        "Amount > 0"            : parsed["total_amount"] > 0,
+        "Amount is 1280"        : abs(parsed["total_amount"] - 1280.0) < 1.0,
+        "Status is success"     : parsed["status"] == "success",
     }
 
     all_passed = True
     for check, passed in checks.items():
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"   {status} — {check}")
+        icon = "✅ PASS" if passed else "❌ FAIL"
+        print(f"   {icon} — {check}")
         if not passed:
             all_passed = False
 
-    print("\n" + ("🎉 ALL TESTS PASSED!" if all_passed else "⚠️ SOME TESTS FAILED — check output above"))
+    print("\n" + ("🎉 ALL TESTS PASSED!" if all_passed else "⚠️  SOME TESTS FAILED — check output above"))
 
 
 if __name__ == "__main__":
