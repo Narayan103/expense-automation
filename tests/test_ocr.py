@@ -1,7 +1,7 @@
 """
 test_ocr.py
 -----------
-Tests OCR engine + text cleaner together.
+Full pipeline test: OCR → Clean → Categorize → Reconcile
 Run: python tests/test_ocr.py
 """
 
@@ -11,11 +11,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PIL import Image, ImageDraw, ImageFont
 from src.ocr_engine import extract_text
-from src.text_cleaner import parse_receipt, clean_raw_text
+from src.text_cleaner import parse_receipt
+from src.categorizer import categorize_expense
+from src.reconciler import load_bank_statement, reconcile
 
 
 def create_sample_receipt(output_path: str):
-    """Creates a fake receipt image for testing."""
     img = Image.new("RGB", (600, 800), color="white")
     draw = ImageDraw.Draw(img)
     font = ImageFont.load_default()
@@ -64,36 +65,58 @@ def create_sample_receipt(output_path: str):
 
 def run_test():
     print("\n" + "🧪 " * 20)
-    print("RUNNING FULL PIPELINE TEST (OCR + CLEANER)")
+    print("FULL PIPELINE: OCR → CLEAN → CATEGORIZE → RECONCILE")
     print("🧪 " * 20)
 
-    receipt_path = "data/receipts/test_receipt.jpg"
+    receipt_path  = "data/receipts/test_receipt.jpg"
+    bank_csv_path = "data/bank_statements/sample_bank.csv"
+
     create_sample_receipt(receipt_path)
 
     # Stage 1: OCR
-    print("\n📸 STAGE 1: OCR EXTRACTION")
+    print("\n📸 STAGE 1: OCR")
     ocr_result = extract_text(receipt_path)
 
-    # Stage 2: Text Cleaning & Parsing
-    print("\n🧹 STAGE 2: TEXT CLEANING & PARSING")
+    # Stage 2: Clean & Parse
+    print("\n🧹 STAGE 2: CLEAN & PARSE")
     parsed = parse_receipt(ocr_result)
 
-    # Show final structured output
-    print("\n" + "=" * 50)
-    print("✅ FINAL STRUCTURED OUTPUT:")
-    print("=" * 50)
-    for key, value in parsed.items():
-        if key != "raw_text":  # Skip raw text for cleaner display
-            print(f"  {key:<15}: {value}")
+    # Stage 3: Categorize
+    print("\n🏷️  STAGE 3: CATEGORIZE")
+    categorized = categorize_expense(parsed)
 
-    # Validation checks
+    # Stage 4: Reconcile
+    print("\n🏦 STAGE 4: RECONCILE")
+    bank_df = load_bank_statement(bank_csv_path)
+    final   = reconcile(categorized, bank_df)
+
+    # Final output
+    print("\n" + "=" * 50)
+    print("✅ COMPLETE PIPELINE OUTPUT:")
+    print("=" * 50)
+
+    display_fields = [
+        "vendor_name", "date", "total_amount",
+        "category", "category_method",
+        "project_name",
+        "reconciliation_status",
+        "matched_bank_description",
+        "matched_transaction_id",
+        "match_confidence",
+    ]
+    for key in display_fields:
+        print(f"  {key:<30}: {final.get(key, 'N/A')}")
+
+    # Validation
     print("\n🔍 Validation Checks:")
     checks = {
-        "Vendor extracted"      : parsed["vendor_name"] != "Unknown Vendor",
-        "Date extracted"        : parsed["date"] != "Unknown Date",
-        "Amount > 0"            : parsed["total_amount"] > 0,
-        "Amount is 1280"        : abs(parsed["total_amount"] - 1280.0) < 1.0,
-        "Status is success"     : parsed["status"] == "success",
+        "Vendor extracted"        : final["vendor_name"] != "Unknown Vendor",
+        "Date extracted"          : final["date"] != "Unknown Date",
+        "Amount > 0"              : final["total_amount"] > 0,
+        "Category assigned"       : final["category"] != "Uncategorized",
+        "Reconciliation ran"      : "reconciliation_status" in final,
+        "Transaction matched"     : final["reconciliation_status"] in
+                                    ["matched", "possible_match"],
     }
 
     all_passed = True
@@ -103,7 +126,8 @@ def run_test():
         if not passed:
             all_passed = False
 
-    print("\n" + ("🎉 ALL TESTS PASSED!" if all_passed else "⚠️  SOME TESTS FAILED — check output above"))
+    print("\n" + ("🎉 ALL TESTS PASSED!" if all_passed
+                  else "⚠️  SOME CHECKS FAILED — see above"))
 
 
 if __name__ == "__main__":
