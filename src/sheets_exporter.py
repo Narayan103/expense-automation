@@ -359,3 +359,4 @@ def export_to_csv(receipts: list, output_path: str = "data/outputs/expenses.csv"
 
     print(f"✅ Saved {len(rows)} row(s) to {output_path}")
     return output_path
+

@@ -6,7 +6,7 @@ Intelligently categorizes expenses using a 3-layer approach:
   Layer 2: Claude AI via Anthropic API (smart, context-aware)
   Layer 3: Fuzzy fallback (always returns something)
 """
-
+import os
 import re
 import json
 import urllib.request
@@ -23,7 +23,9 @@ CATEGORIES = {
         "pen", "pencil", "notebook", "stapler", "paper", "printer",
         "ink", "toner", "folder", "binder", "tape", "scissors",
         "marker", "highlighter", "envelope", "stationery", "cartridge",
-        "whiteboard", "eraser", "clip", "file", "lamination"
+        "whiteboard", "eraser", "clip", "file", "lamination","id card", "identity card", "visiting card",
+        "business card", "lamination", "printing",
+        "ekta", "enterprises"
     ],
     "Travel & Transport": [
         "uber", "ola", "taxi", "cab", "auto", "rickshaw", "bus",
@@ -53,7 +55,9 @@ CATEGORIES = {
         "pharmacy", "medicine", "medical", "doctor", "hospital",
         "clinic", "health", "lab", "diagnostic", "apollo", "netmeds",
         "1mg", "pharmeasy", "chemist", "drug", "prescription",
-        "consultation", "pathology", "blood test", "xray"
+        "consultation", "pathology", "blood test", "xray","hiranandani", "registration", "consultation", "opd",
+        "patient", "bill cum", "nabh", "nabl", "accredited",
+        "covid", "handling charges", "dr ", "doctor",
     ],
     "Communication": [
         "airtel", "jio", "vodafone", "bsnl", "vi", "recharge",
@@ -70,6 +74,26 @@ CATEGORIES = {
         "course", "training", "workshop", "seminar", "conference",
         "udemy", "coursera", "book", "certification", "exam",
         "coaching", "tutorial", "learning", "education", "class"
+    ],
+    "Shopping & Retail": [
+        "flipkart", "amazon", "myntra", "snapdeal", "meesho",
+        "retail", "store", "shop", "mart", "bazaar", "mall",
+        "ws retail", "reliance", "dmart", "bigbasket", "grofers",
+        "payment receipt", "cod", "cash on delivery", "invoice",
+        "purchase", "order", "delivery"
+    ],
+    "Fuel & Petrol": [
+        "petrol", "diesel", "fuel", "indianoil", "indian oil",
+        "iocl", "hpcl", "bpcl", "hp petrol", "bharat petroleum",
+        "shell", "essar", "pump", "filling station", "cng",
+        "taneja", "petrol pump", "gas station", "lpg"
+    ],
+    "Newspaper & Media": [
+        "newspaper", "news paper", "agency", "times of india",
+        "hindustan times", "the hindu", "economic times",
+        "maharashtra times", "lokmat", "navbharat", "dainik",
+        "magazine", "publication", "press", "media", "priyakant",
+        "nav shakti", "loksatta", "samachar", "chitralekha"
     ],
     "Miscellaneous": []  # Catch-all — always last
 }
@@ -128,74 +152,59 @@ def categorize_by_keywords(vendor: str, raw_text: str) -> tuple[str, float]:
 # ─────────────────────────────────────────────
 # LAYER 2: CLAUDE AI CATEGORIZATION
 # ─────────────────────────────────────────────
-
 def categorize_by_ai(vendor: str, raw_text: str, amount: float) -> str:
     """
-    Use Claude AI (via Anthropic API) to categorize the expense.
-    Called only when keyword matching is not confident enough.
-
-    This makes a real API call to Claude — completely free to use
-    within claude.ai artifacts.
-
-    Returns:
-        Category string from CATEGORIES list
+    Use Gemini API via LangChain to categorize expense.
+    Uses same API key as llm_extractor.
     """
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("   ⚠️ GEMINI_API_KEY not set — skipping AI categorization")
+        return None
+
     category_list = [c for c in CATEGORIES.keys() if c != "Miscellaneous"]
 
-    # Build a focused prompt
-    prompt = f"""You are an expense categorization assistant for a company.
+    prompt = f"""You are an expense categorization assistant.
 
-Analyze this receipt and assign ONE category from the list below.
+Vendor: {vendor}
+Amount: {amount}
+Receipt text (first 200 chars): {raw_text[:200]}
 
-Receipt Details:
-- Vendor: {vendor}
-- Amount: {amount}
-- Receipt Text (first 300 chars): {raw_text[:300]}
-
-Available Categories:
+Available categories:
 {chr(10).join(f'- {cat}' for cat in category_list)}
 - Miscellaneous
 
-Rules:
-1. Reply with ONLY the category name — nothing else
-2. Choose the most specific matching category
-3. Use "Miscellaneous" only if nothing fits
-
-Category:"""
+Reply with ONLY the category name, nothing else."""
 
     try:
-        # Call Anthropic API
-        payload = json.dumps({
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 50,
-            "messages": [{"role": "user", "content": prompt}]
-        }).encode("utf-8")
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain.prompts import PromptTemplate
 
-        req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST"
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash-preview-04-17",
+            google_api_key=api_key,
+            temperature=0,
+            max_tokens=50,
         )
 
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            ai_response = data["content"][0]["text"].strip()
+        response = llm.invoke(prompt)
+        ai_response = response.content.strip()
 
-        # Validate the response is a known category
+        # Validate response
         for category in CATEGORIES.keys():
             if category.lower() in ai_response.lower():
                 print(f"   🤖 AI categorized as: {category}")
                 return category
 
-        # If AI returned something unexpected, fall through
         print(f"   ⚠️ AI returned unknown category: {ai_response}")
         return None
 
     except Exception as e:
         print(f"   ⚠️ AI categorization failed: {e}")
         return None
-
 
 # ─────────────────────────────────────────────
 # LAYER 3: FUZZY FALLBACK
@@ -282,3 +291,4 @@ def categorize_expense(parsed_receipt: dict) -> dict:
     parsed_receipt["category_method"] = "fuzzy"
     parsed_receipt["category_confidence"] = 0.3
     return parsed_receipt
+

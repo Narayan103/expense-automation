@@ -1,21 +1,63 @@
-# OCR
+# # OCR
+# pillow==10.3.0
+# pytesseract==0.3.10
+# easyocr==1.7.1
+# pdf2image==1.17.0
+
+# # Data handling
+# pandas==2.2.2
+# numpy==1.26.4
+
+# # Google Sheets
+# gspread==6.1.2
+# google-auth==2.29.0
+
+# # UI
+# streamlit==1.35.0
+
+# # Utilities
+# python-dotenv==1.0.1
+
+# rapidfuzz==3.9.3
+# ==================================================
+# Core App UI
+# ==================================================
+streamlit==1.35.0
+
+# ==================================================
+# OCR / Image Processing
+# ==================================================
 pillow==10.3.0
 pytesseract==0.3.10
 easyocr==1.7.1
 pdf2image==1.17.0
+opencv-python-headless==4.10.0.84
 
-# Data handling
+# ==================================================
+# Data Handling
+# ==================================================
 pandas==2.2.2
 numpy==1.26.4
 
-# Google Sheets
+# ==================================================
+# Google Sheets Export
+# ==================================================
 gspread==6.1.2
 google-auth==2.29.0
 
-# UI
-streamlit==1.35.0
-
+# ==================================================
 # Utilities
+# ==================================================
 python-dotenv==1.0.1
-
 rapidfuzz==3.9.3
+
+# ==================================================
+# Optional Performance / Stability
+# ==================================================
+protobuf<5
+pyyaml>=6.0
+
+
+langchain==0.2.16
+langchain-google-genai==1.0.10
+google-generativeai==0.7.2
