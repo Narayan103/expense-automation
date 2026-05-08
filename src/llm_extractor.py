@@ -41,6 +41,7 @@ VALID_CATEGORIES = [
     "Fuel & Petrol",
     "Newspaper & Media",
     "Shopping & Retail",
+    "Utilities & Services", 
     "Miscellaneous"
 ]
 
@@ -98,6 +99,17 @@ Your job is to extract the key fields and return ONLY a valid JSON object.
    - "6400/-" → 6400.0
    - "64400" where line items sum to 6400 → return 6400.0
    - Return 0 if truly not found
+   Keywords to look for: TOTAL, Grand Total, Sale, एकूण (Marathi=Total)
+   - अक्षरी रुपये = amount in words (Marathi)
+   - "9900/-" → 9900.0   "9,900" → 9900.0
+   - OCR often misreads handwritten digits:
+       9 → sometimes reads as 1 (so "9100" might be "9900")  
+       0 → sometimes reads as 6 or D
+   - If amount-in-words says "नऊ हजार नऊशे" (Nine thousand nine hundred)
+     that means 9900 — trust words over digits if they conflict
+   - Sum line items as verification: 1100+2200+2200+2200+2200 = 9900
+   - IGNORE: Bill numbers, phone numbers, quantities, rates
+   - Return 0 only if truly not found
 4. currency: Default "INR" for Indian receipts
 5. category: Pick ONE from the available categories that best fits
 6. items: List of individual line items if visible. Each item has:

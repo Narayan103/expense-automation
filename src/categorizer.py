@@ -95,6 +95,14 @@ CATEGORIES = {
         "magazine", "publication", "press", "media", "priyakant",
         "nav shakti", "loksatta", "samachar", "chitralekha"
     ],
+    "Utilities & Services": [
+        "water", "electricity", "power", "gas", "utility",
+        "supplier", "supply", "tanker", "pipeline", "sewage",
+        "sarthak", "water supplier", "पाणी", "वीज",
+        "liter", "litre", "kilo", "kg", "unit",
+        "municipal", "corporation", "mseb", "mahadiscom",
+        "tata power", "adani", "bescom", "tneb"
+    ],
     "Miscellaneous": []  # Catch-all — always last
 }
 

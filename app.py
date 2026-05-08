@@ -402,7 +402,24 @@ def display_results(result: dict, uploaded_image=None):
         if sheets_id:
             sheet_url = f"https://docs.google.com/spreadsheets/d/{sheets_id}"
             st.link_button("📊 Open Google Sheet", sheet_url)
-
+# ERPNext Export Button
+    erpnext_url = os.getenv("ERPNEXT_URL")
+    if erpnext_url:
+        st.markdown("**🏢 ERPNext:**")
+        if st.button("📤 Create Expense Claim in ERPNext"):
+                        from src.erpnext_exporter import create_expense_claim
+                        with st.spinner("Creating in ERPNext..."):
+                            erp_result = create_expense_claim(result)
+                        if erp_result.get("success"):
+                            st.success(
+                                f"✅ Created: {erp_result['expense_claim_id']}"
+                            )
+                            st.link_button(
+                                "🔗 Open in ERPNext",
+                                erp_result["url"]
+                            )
+                        else:
+                            st.error(f"❌ {erp_result.get('error')}")
 
 # ─────────────────────────────────────────────
 # BATCH PROCESSING TAB

@@ -237,7 +237,11 @@ def extract_amount(text: str) -> float:
     # Words near total amount lines
     total_triggers = [
         "grand total", "total amount", "net payable", "total payable",
-        "amount due", "net amount", "sale", "total"
+        "amount due", "net amount", "sale", "total","grand total", "total amount", "net payable", "total payable",
+        "amount due", "net amount", "sale", "total","tl",
+        "ekun", "एकूण",      # Marathi for "total"
+        "yogya", "yogsam",   # Other Marathi amount words
+        "net", "payable"
     ]
 
     # Lines to never extract amount from
@@ -316,16 +320,37 @@ def extract_amount(text: str) -> float:
             return total
         
     # ── Strategy 3: Amount in words ───────────────────────────────
-    words_match = re.search(
-        r'amount\s+in\s+words[^a-zA-Z]{0,5}([A-Za-z\s]+?)(?:only|rupees\s*$)',
-        text, re.IGNORECASE
-    )
-    if words_match:
-        word_amount = _words_to_number(words_match.group(1))
-        if word_amount > 0:
-            print(f"   💡 Amount via words: {word_amount}")
-            return word_amount
+# ── Strategy 3: Sum line items ────────────────────────────────
+    # More reliable than reading garbled total on handwritten receipts
+    line_item_amounts = []
+    for line in lines:
+        line_lower = line.lower().strip()
 
+        if any(skip in line_lower for skip in skip_triggers):
+            continue
+
+        if any(w in line_lower for w in [
+            'total', 'subtotal', 'balance', 'grand', 'ekun',
+            'service', 'tax', 'gst', 'discount', 'एकूण'
+        ]):
+            continue
+
+        amount = _parse_amount_from_line(line)
+        # Line items are typically between Rs 100 and Rs 50,000
+        if 100 < amount < 50000:
+            line_item_amounts.append(amount)
+
+    # Only use sum if we found multiple items (2+)
+    # and they add up to a reasonable total
+    if len(line_item_amounts) >= 2:
+        total = sum(line_item_amounts)
+        if 10 < total < 500000:
+            print(f"   💡 Amount via line-item sum "
+                  f"({len(line_item_amounts)} items = {line_item_amounts}): {total}")
+            return total
+
+    # ── Strategy 4: Money-context lines ──────────────────────────
+    # ... rest of existing code
     # ── Strategy 4: Money-context lines only ──────────────────────
     money_words = ['total','amount','paid','charge','cost','fee','sale']
     for line in lines:
